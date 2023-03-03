@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0"/>
+    <title>APP下载</title>
+    <link href="https://res.wx.qq.com/open/libs/weui/1.1.3/weui.min.css" type="text/css" rel="stylesheet">
+    <style>
+        .page__bd {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        .weui-swiped-btn_warn {
+            color: white;
+        }
+        .list-time {
+            margin-right: 20px;
+        }
+        .path-list {
+            height: 85vh;
+            overflow: auto;
+            padding-bottom: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+<!--        <div class="page__hd" style="text-align: center">-->
+<!--            <h1 class="page__title">APP包下载</h1>-->
+<!--        </div>-->
+
+        <div role="alert" class="weui-toptips weui-toptips_warn" id="topTips" style="display: block; opacity: 1;background-color: #07c160;display: none;">
+            上传成功
+        </div>
+
+        <div class="weui-cells">
+            <div role="option" class="weui-cell  weui-cell_example up-path" onclick="clickUp()">
+                <div class="weui-cell__hd"><img src="images/返回上层级.png" alt="" style="width: 20px; margin-right: 16px; display: block;"></div>
+                <div class="weui-cell__bd">
+                    <p>../</p>
+                </div>
+            </div>
+
+            <div class="path-list"></div>
+
+            <div class="page__bd">
+                <input type="file" id="file" onchange="progressBar()">
+
+                <div class="weui-progress" style="display: none">
+                    <div class="weui-progress__bar">
+                        <div class="weui-progress__inner-bar js_progress" style="width: 0%;"></div>
+                    </div>
+                    <span role="alert" class="weui-hidden_abs">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="js_dialog" role="dialog" aria-hidden="false" aria-modal="true" aria-labelledby="js_title1" style="opacity: 1;display: none;" tabindex="0">
+            <div class="weui-mask"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title" id="js_title1">系统提示</strong></div>
+                <div class="weui-dialog__bd">确认删除文件？</div>
+                <div class="weui-dialog__ft">
+                    <a role="button" href="javascript:" class="weui-dialog__btn weui-dialog__btn_default" onclick="cancelDelete()">取消</a>
+                    <a role="button" href="javascript:" class="weui-dialog__btn" style="color: red" onclick="confirmDelete()">删除</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="js/jquery-3.6.0.min.js"></script>
+<script>
+    window.onload = function(){
+        getList();
+    }
+
+    let upPath = []
+    let deletePath = null;
+
+    function getList(path){
+        $.ajax({
+            url: "file/getList",
+            type: "GET",
+            data: {
+                path: path
+            },
+            success: function(res){
+                let list = res.data;
+                loadList(list);
+                upPath.push(path)
+            }
+        });
+    }
+
+    function loadList(list){
+        if(upPath.length === 0){
+            $(".up-path").hide();
+        }else{
+            $(".up-path").show();
+        }
+        $(".path-list").children().remove();
+        for (let i = 0; i < list.length; i++) {
+            let fineName = list[i].fineName;
+            let isDirectory = list[i].isDirectory;
+            let lastModified = list[i].lastModified;
+            let path = list[i].path;
+            let fileSuffix = list[i].fileSuffix;
+            // let icon = isDirectory ? "images/文件夹.png" : "images/apk.png";
+            let icon = "images/文件夹.png";
+            if(fileSuffix != null){
+                icon = "images/"+ fileSuffix +".png";
+            }
+            let dom =
+                "<div role=\"option\" class=\"weui-cell  weui-cell_example\" >" +
+                "   <div class=\"weui-cell__hd\"><img src=\""+icon+"\" alt=\"\" style=\"width: 20px; margin-right: 16px; display: block;\"></div>" +
+                "   <div class=\"weui-cell__bd\" onclick=\"clickPath('"+path+"','"+isDirectory+"')\">" +
+                "       <p>"+fineName+"</p>" +
+                "   </div>" +
+                "   <div class=\"weui-cell__ft list-time\">"+formatDate(new Date(lastModified),"YYYY-MM-DD HH:ii:ss")+"</div>";
+            if(!isDirectory){
+                dom = dom +
+                    "<div class=\"weui-cell__ft\">" +
+                    "   <a role=\"button\" class=\"weui-swiped-btn weui-swiped-btn_warn\" href=\"javascript:\" onclick=\"showDelete('"+path+"')\">删除</a>" +
+                    "</div>";
+            }
+            dom = dom + "</div>";
+            $(".path-list").append(dom);
+        }
+    }
+
+    function clickPath(path,isDirectory){
+        if(isDirectory === "true"){
+            getList(path);
+        }else{
+            const el = document.createElement('a');
+            el.style.display = 'none';
+            el.setAttribute('target', '_blank');
+            el.href = "file/download?path=" + path;
+            document.body.appendChild(el);
+            el.click();
+            document.body.removeChild(el);
+        }
+    }
+
+    function clickUp(){
+        getList(upPath[upPath.length-2]);
+        upPath.pop();
+        upPath.pop();
+    }
+
+    function progressBar(){
+        let files = $("#file")[0].files
+        if(files.length <= 0) {
+            return alert('请选择要上传的文件')
+        }
+        let formData = new FormData()
+        formData.append('file',files[0])
+        formData.append('path',upPath[upPath.length-1])
+
+        let xhr = new XMLHttpRequest();
+        xhr.responseType = "json";
+
+        //post提交，你的请求地址，是否异步
+        xhr.open('POST', 'file/upload', true);
+        //回调是否成功
+        xhr.onload = function (e) {
+            if (this.status == 200) {
+                $("#topTips").fadeIn(1000);
+                setInterval(function(){
+                    $("#topTips").fadeOut(500);
+                },2000);
+                $(".weui-progress").hide();
+                getList(upPath[upPath.length-1]);
+                $("#file").val("");
+            }
+        };
+
+        //文件进度监听
+        xhr.upload.onprogress = function (even) {
+            let loaded = even.loaded; //已上传的大小
+            let total = even.total; //总大小
+            let percentage = Math.floor((loaded / total) * 100) + "%" //转换成百分比
+            $(".js_progress").attr({"style": "width: " + percentage});
+            $(".weui-hidden_abs").html(percentage);
+        };
+        //提交请求
+        xhr.send(formData)
+        $(".weui-progress").show();
+    }
+
+    function showDelete(path){
+        deletePath = path;
+        $(".js_dialog").show();
+    }
+
+    function cancelDelete(){
+        $(".js_dialog").hide();
+    }
+
+    function confirmDelete(){
+        $.ajax({
+            url: "file/delete",
+            type: "POST",
+            data: {
+                path: deletePath
+            },
+            success: function(res){
+                $(".js_dialog").hide();
+                getList(upPath[upPath.length-1]);
+            }
+        });
+    }
+
+    /**
+     * js 时间戳的转换（自定义格式）
+     * @param  date [创建 Date 对象]
+     * @param  formatStr [日期格式]
+     * @return (string) 日期时间
+     */
+    function formatDate(date, formatStr) {
+        let arrWeek = ['日', '一', '二', '三', '四', '五', '六'],
+            str = formatStr.replace(/yyyy|YYYY/, date.getFullYear()).replace(/yy|YY/, addZero(date.getFullYear() % 100, 2)).replace(/mm|MM/, addZero(date.getMonth() + 1, 2)).replace(/m|M/g, date.getMonth() + 1).replace(/dd|DD/, addZero(date.getDate(), 2)).replace(/d|D/g, date.getDate()).replace(/hh|HH/, addZero(date.getHours(), 2)).replace(/h|H/g, date.getHours()).replace(/ii|II/, addZero(date.getMinutes(), 2)).replace(/i|I/g, date.getMinutes()).replace(/ss|SS/, addZero(date.getSeconds(), 2)).replace(/s|S/g, date.getSeconds()).replace(/w/g, date.getDay()).replace(/W/g, arrWeek[date.getDay()]);
+        return str;
+    }
+    function addZero(v, size) {
+        for (let i = 0, len = size - (v + "").length; i < len; i++) {
+            v = "0" + v;
+        };
+        return v + "";
+    }
+</script>
+</html>

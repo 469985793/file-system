@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>火罗玩影工具集</title>
+</head>
+<body>
+    <div>
+        一键增加账号的影票、火种、福卡并且实名并且设置支付密码(6个1) </br>
+        手机号码: <input class="phone"> <button onclick="updateUserInfo()">修改</button>
+    </div>
+</body>
+<script src="js/jquery-3.6.0.min.js"></script>
+<script>
+    window.onload = function(){
+
+    }
+
+    function updateUserInfo() {
+        let phone = $(".phone").val();
+        $.ajax({
+            url: `tools/updateUserInfo/${phone}`,
+            type: "POST",
+            success: function(res){
+                if(res.code === 0){
+                    alert("修改成功");
+                }else{
+                    alert("手机不存在");
+                }
+            }
+        });
+    }
+</script>
+</html>
